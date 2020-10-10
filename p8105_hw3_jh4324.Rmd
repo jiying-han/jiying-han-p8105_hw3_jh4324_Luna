@@ -107,7 +107,7 @@ acc_tidy_data =
     activity.1 : activity.1440,
     names_to = "minute",
     names_prefix = "activity.", 
-    values_to = "activity counts"
+    values_to = "activity_counts"
               ) %>% 
     mutate(
       weekday = case_when(
@@ -127,42 +127,118 @@ This dataset is has `r nrow(acc_tidy_data)` observations, `r ncol(acc_tidy_data)
 
 
 
-*2. Traditional analyses of accelerometer data focus on the total activity over the day. Using your tidied dataset, aggregate accross minutes to create a total activity variable for each day, and create a table showing these totals. Are any trends apparent?
+*2. Traditional analyses of accelerometer data focus on the total activity over the day. Using your tidied dataset, aggregate accross minutes to create a total activity variable for each day, and create a table showing these totals. 
+
+
+Are any trends apparent?
 ```{r}
 acc_trad_df =
   acc_tidy_data %>% 
   group_by(week,day) %>% 
-  mutate(
-    total_activity = sum(`activity counts`)
-  ) 
-
+  summarize(
+    total_activity = sum(activity_counts)
+   ) %>% 
+  pivot_wider(
+    names_from = week, 
+    names_prefix = "week",
+    values_from = total_activity
+  )
 knitr::kable(acc_trad_df)
-  
-  
+ 
 ```
 
+as we can see from the table, the trend is not apparent.
 
 
-
-*3. Accelerometer data allows the inspection activity over the course of the day. Make a single-panel plot that shows the 24-hour activity time courses for each day and use color to indicate day of the week. Describe in words any patterns or conclusions you can make based on this graph.
+*3. Accelerometer data allows the inspection activity over the course of the day. Make a single-panel plot that shows the 24-hour activity time courses for each day and use color to indicate day of the week. Describe in words any patterns or conclusions you can make based on this graph
 ```{r}
-
+acc_tidy_data %>%
+  select(
+    day_id,minute,activity_counts
+  )  %>% 
+  ggplot(aes(x = minute, y = activity_counts, color = day_id)) +   
+  geom_smooth()
 ```
+
+
 
 ## Problem 3
-```{r}
-data("ny_noaa")
-```
-
 
 
 The goal is to do some exploration of this dataset. To that end, write a short description of the dataset, noting the size and structure of the data, describing some key variables, and indicating the extent to which missing data is an issue. Then, do or answer the following (commenting on the results of each):
 
+this dataset has  `r nrow(ny_noaa)`  rows and it contains `r names(ny_noaa)`  `r ncol(ny_noaa)` variables. andvariables
+
+
+
 Do some data cleaning. Create separate variables for year, month, and day. Ensure observations for temperature, precipitation, and snowfall are given in reasonable units. For snowfall, what are the most commonly observed values? Why?
+```{r}
+library(rnoaa)
+data("ny_noaa") 
+noaany_df =
+  ny_noaa %>% 
+  mutate_at(
+    vars(date), as.factor
+          ) %>% 
+  separate( date, into = c("year", "month", "day"), sep = "-", ) %>% 
+  mutate_at(
+    vars(year,month,day), as.factor
+           ) %>% 
+  mutate_at(
+    vars(tmax, tmin, prcp, snow, snwd), as.numeric
+  ) %>% 
+  mutate(
+    prcp = prcp / 10,
+    tmax = tmax / 10,
+    tmin = tmin / 10
+  ) 
+
+noaany_df %>% 
+  count(snow) %>% 
+  arrange(desc(n))
+
+```
+The most commonly observed is `0`, because NYC doesn't snow for most of the time.
+
+```{r}
+noaany_df %>%
+  distinct(id)
+```
+
+
+
 Make a two-panel plot showing the average max temperature in January and in July in each station across years. Is there any observable / interpretable structure? Any outliers?
-Make a two-panel plot showing (i) tmax vs tmin for the full dataset (note that a scatterplot may not be the best option); and (ii) make a plot showing the distribution of snowfall values greater than 0 and less than 100 separately by year.
+```{r}
+panel_df =
+  noaany_df %>%
+  filter(
+    month %in% c("07", "01")
+        ) %>% 
+  group_by(month, year, day) %>% 
+  summarize(
+    mean_tmax = mean(tmax, na.rm=TRUE)
+  ) %>%
+  drop_na() %>% 
+  ggplot(aes(x = year, y = mean_tmax, color = id)) +
+  geom_point(alpha(.5)) + 
+  geom_smooth(se = FALSE) +
+  facet_grid(. ~ month) 
+
+```
 
 
 
+Make a two-panel plot showing 
+(i) tmax vs tmin for the full dataset (note that a scatterplot may not be the best option); and 
+```{r}
+
+```
+
+
+
+(ii) make a plot showing the distribution of snowfall values greater than 0 and less than 100 separately by year.
+```{r}
+
+```
 
 
