@@ -9,6 +9,9 @@ This is my solutions of homework 3
 ```{r setup, include=FALSE}
 library(tidyverse)
 library(p8105.datasets)
+library(ggridges)
+library(patchwork)
+
 knitr::opts_chunk$set(
 	fig.width = 6, 
   fig.asp = .6,
@@ -99,7 +102,7 @@ acc_data =
 
 
 
-*1. Load, tidy, and otherwise wrangle the data. Your final dataset should include all originally observed variables and values; have useful variable names; include a weekday vs weekend variable; and encode data with reasonable variable classes. Describe the resulting dataset (e.g. what variables exist, how many observations, etc).
+* 1.Load, tidy, and otherwise wrangle the data. Your final dataset should include all originally observed variables and values; have useful variable names; include a weekday vs weekend variable; and encode data with reasonable variable classes. Describe the resulting dataset (e.g. what variables exist, how many observations, etc).
 ```{r}
 acc_tidy_data = 
   pivot_longer(
@@ -127,7 +130,7 @@ This dataset is has `r nrow(acc_tidy_data)` observations, `r ncol(acc_tidy_data)
 
 
 
-*2. Traditional analyses of accelerometer data focus on the total activity over the day. Using your tidied dataset, aggregate accross minutes to create a total activity variable for each day, and create a table showing these totals. 
+* 2.Traditional analyses of accelerometer data focus on the total activity over the day. Using your tidied dataset, aggregate accross minutes to create a total activity variable for each day, and create a table showing these totals. 
 
 
 Are any trends apparent?
@@ -147,33 +150,62 @@ knitr::kable(acc_trad_df)
  
 ```
 
-as we can see from the table, the trend is not apparent.
+Generally, I can't get the apparent trend from this table, but I can extract some information:
+
+(1). In week one, this patient did the largest amount of activities on Sunday, in week 2, he did the largest count activities on Saturday, in week 3, he did the most on Monday, in week 4, it's on Wednesday and in week 5, it's on Friday. Thus, although it's not obvious, he usually does the largest counts of activities on weekdays.
+
+(2). In general, he did the most counts of activities on week 1 compared with the rest 4 weeks.
+
+(3). Here is the trend,
+     
+     week 1 : the overall trend is the activity accoutns increasing from Monday to Sunday. (Friday is an exception)
+     
+     week 2 : the overall trend is the activity accoutns increasing from Monday to Sunday.
+     
+     week 3 : the overall trend is the activity accoutns decreasing from Monday to Sunday.
+     
+     week 4 : there is no trend, and it seems that one day the count is high, the next day the count is relatively low
+     
+     week 5 : the trend from Monday to Friday is increasing, however, in weekend, it's vey low.
 
 
-*3. Accelerometer data allows the inspection activity over the course of the day. Make a single-panel plot that shows the 24-hour activity time courses for each day and use color to indicate day of the week. Describe in words any patterns or conclusions you can make based on this graph
+
+
+
+* 3.Accelerometer data allows the inspection activity over the course of the day. Make a single-panel plot that shows the 24-hour activity time courses for each day and use color to indicate day of the week. Describe in words any patterns or conclusions you can make based on this graph
 ```{r}
-acc_tidy_data %>%
+inspec_plot = 
+  acc_tidy_data %>%
   select(
-    day_id,minute,activity_counts
-  )  %>% 
-  ggplot(aes(x = minute, y = activity_counts, color = day_id)) +   
-  geom_smooth()
+    day_id,minute,activity_counts, day
+  ) %>% 
+  ggplot(aes(x = minute, y = activity_counts, color = day, group = day_id)) +   
+  geom_path() +
+  labs(
+    title = "24-hour activity time courses for each day",
+    caption = "Data from the accel_data.csv"
+  )  
+ggsave("24-hour activity time courses for each day.pdf",inspec_plot, width = 8, height = 5)
+
+knitr::opts_chunk$set(
+  fig.width = 6,
+  fig.asp = .6,
+  out.width = "90%"
+)
+
+inspec_plot
 ```
 
+
+Generally, on Wednesdays this patient tends to have low activity load, and on Friday tends to have heavy activity load in the evening. Most of the activities focus on moon and evening.
 
 
 ## Problem 3
 
 
-The goal is to do some exploration of this dataset. To that end, write a short description of the dataset, noting the size and structure of the data, describing some key variables, and indicating the extent to which missing data is an issue. Then, do or answer the following (commenting on the results of each):
 
-this dataset has  `r nrow(ny_noaa)`  rows and it contains `r names(ny_noaa)`  `r ncol(ny_noaa)` variables. andvariables
-
-
-
-Do some data cleaning. Create separate variables for year, month, and day. Ensure observations for temperature, precipitation, and snowfall are given in reasonable units. For snowfall, what are the most commonly observed values? Why?
+* 1.Do some data cleaning. Create separate variables for year, month, and day. Ensure observations for temperature, precipitation, and snowfall are given in reasonable units. For snowfall, what are the most commonly observed values? Why?
 ```{r}
-library(rnoaa)
 data("ny_noaa") 
 noaany_df =
   ny_noaa %>% 
@@ -194,51 +226,148 @@ noaany_df =
   ) 
 
 noaany_df %>% 
+  drop_na() %>% 
   count(snow) %>% 
   arrange(desc(n))
 
 ```
-The most commonly observed is `0`, because NYC doesn't snow for most of the time.
+The most commonly observed is `0`, because NYC doesn't snow for most of the time. The second commonly observed is `25` and the third is `13` .
+
+
+
+
+* 2.Make a two-panel plot showing the average max temperature in January and in July in each station across years. Is there any observable / interpretable structure? Any outliers?
+
+
+
+There are some outliers and most of the outliers in July are farther away from center than Jan's. Plus, the overall average max temperatures in Jan are lower than July's, although there are some overlapping. The range of average max temperatures in Jan are bigger than July"s.
+
 
 ```{r}
-noaany_df %>%
-  distinct(id)
-```
-
-
-
-Make a two-panel plot showing the average max temperature in January and in July in each station across years. Is there any observable / interpretable structure? Any outliers?
-```{r}
-panel_df =
+jvj_plot =
   noaany_df %>%
   filter(
     month %in% c("07", "01")
         ) %>% 
-  group_by(month, year, day) %>% 
+  group_by(id, month, year, tmax) %>% 
   summarize(
     mean_tmax = mean(tmax, na.rm=TRUE)
   ) %>%
   drop_na() %>% 
   ggplot(aes(x = year, y = mean_tmax, color = id)) +
-  geom_point(alpha(.5)) + 
-  geom_smooth(se = FALSE) +
-  facet_grid(. ~ month) 
+  geom_point(alpha = 0.5) + 
+  geom_path(alpha = 0.3) +
+  theme(legend.position="none") +
+  theme(axis.text.x = element_text(angle = 270, vjust = 0.5, hjust = 1)) +
+  facet_grid(. ~ month) +
+  labs(
+    title = "Average max temperature in January and in July",
+    sutitle = "NYC data from 1998 to 2008",
+    caption = "Data from ny_noaa dataset"
+  ) 
+ ggsave("Average max temperature in January and in July.pdf",jvj_plot, width = 8, height = 5)
 
+knitr::opts_chunk$set(
+  fig.width = 6,
+  fig.asp = .6,
+  out.width = "90%"
+) 
+
+jvj_plot 
 ```
 
 
 
-Make a two-panel plot showing 
-(i) tmax vs tmin for the full dataset (note that a scatterplot may not be the best option); and 
+* 3.Make a two-panel plot showing 
+
+* 1. tmax vs tmin for the full dataset 
 ```{r}
+maxin_plot = noaany_df %>% 
+  drop_na(tmin,tmax) %>% 
+  ggplot(aes(x = tmax, y = tmin)) + 
+  geom_bin2d() +
+  labs(
+   title = "tmax vs tmin" ,
+   sutitle = "NYC data from 1998 to 2008",
+   caption = "Data from ny_noaa dataset"
+  )
 
+ ggsave("tmax vs tmin.pdf",maxin_plot, width = 8, height = 5)
+
+knitr::opts_chunk$set(
+  fig.width = 6,
+  fig.asp = .6,
+  out.width = "90%"
+) 
+
+maxin_plot
 ```
 
 
 
-(ii) make a plot showing the distribution of snowfall values greater than 0 and less than 100 separately by year.
+* 2.  make a plot showing the distribution of snowfall values greater than 0 and less than 100 separately by year.
 ```{r}
+snow_df =
+  noaany_df %>% 
+  filter(
+    snow > 0, 
+    snow < 100
+  ) 
+snow_plot = 
+  snow_df %>% 
+  ggplot(aes(x = year, y = snow)) + 
+  geom_violin(aes(fill = year), alpha = .5) +
+  stat_summary(fun = "median", color = "blue") +
+  theme(axis.text.x = element_text(angle = 270, vjust = 0.5, hjust = 1))+
+  labs(
+    title = "Distribution of snowfall values",
+    subtitle = "snowfall values greater than 0 and less than 100",
+    caption = "Data from ny_noaa dataset"
+  ) +
+  scale_y_continuous(
+    breaks = c(0, 50, 100), 
+    labels = c("0 mm", "50 mm", "100 mm"))
+  
+ggsave("Distribution of snowfall values.pdf",snow_plot, width = 8, height = 5)
+knitr::opts_chunk$set(
+  fig.width = 6,
+  fig.asp = .6,
+  out.width = "90%"
+)
 
+snow_plot
 ```
+
+
+
+* 4.merge the two plots
+```{r}
+library(patchwork)
+merg_plot = maxin_plot + snow_plot 
+
+ ggsave("imagines from noaa_ny.pdf",merg_plot, width = 20, height = 10 )
+ knitr::opts_chunk$set(
+  fig.width = 10,
+  fig.asp = .9,
+  out.width = "90%"
+)
+
+ merg_plot
+```
+
+
+
+As for missing value and its extent, here are the proprotion of missing value in each variable.
+```{r}
+ny_noaa %>% 
+  summarise(tmax_na = (sum(is.na(tmax)))/nrow(ny_noaa),
+            tmin_na = (sum(is.na(tmin)))/nrow(ny_noaa),
+            prcp_na = (sum(is.na(prcp)))/nrow(ny_noaa),
+            snow_na = (sum(is.na(snow)))/nrow(ny_noaa),
+            snwd_na = (sum(is.na(snwd)))/nrow(ny_noaa))
+          
+dist = distinct(ny_noaa, id)
+```
+
 
 
